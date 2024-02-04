@@ -45,7 +45,12 @@ const Palette: React.FC = () => {
 
   const drawBox = (ctx: CanvasRenderingContext2D, box: Box) => {
     ctx.save();
-    ctx.translate(box.x * zoom, box.y * zoom);
+
+    // Calculate adjusted position based on the center of the box
+    const adjustedX = box.x - boxSize.width / 2;
+    const adjustedY = box.y - boxSize.height / 2;
+
+    ctx.translate(adjustedX * zoom, (paletteSize.height - adjustedY - boxSize.height) * zoom);
     ctx.rotate((box.r * Math.PI) / 180);
 
     // Draw box
@@ -77,27 +82,26 @@ const Palette: React.FC = () => {
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-  
+
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
-  
+
     if (canvasBounds) {
       const { x, y, box } = JSON.parse(
         event.dataTransfer.getData('application/json')
       );
-  
-      // Calculate the new position
-      let newX = (event.clientX - canvasBounds.left) / zoom - x;
-      let newY = (event.clientY - canvasBounds.top) / zoom - y;
-  
+
+      // Calculate the new position based on the center of the box
+      let newX = (event.clientX - canvasBounds.left) / zoom + boxSize.width / (2 * zoom);
+      let newY = paletteSize.height - (event.clientY - canvasBounds.top) / zoom - boxSize.height / (2 * zoom);
+
       // Ensure the entire box stays within the canvas boundaries
       newX = Math.max(0, Math.min(newX, paletteSize.width - boxSize.width / zoom));
       newY = Math.max(0, Math.min(newY, paletteSize.height - boxSize.height / zoom));
-  
+
       // Dispatch action to update box position
       dispatch(editBox({ ...box, x: newX, y: newY }));
     }
   };
-  
 
   const handleZoom = (factor: number) => {
     setZoom((prevZoom) => Math.max(0.1, Math.min(2, prevZoom * factor))); // Adjust zoom limits as needed
@@ -144,8 +148,8 @@ const Palette: React.FC = () => {
       </div>
       <canvas
         ref={canvasRef}
-        width={paletteSize.width * zoom} // Adjust canvas size based on zoom
-        height={paletteSize.height * zoom} // Adjust canvas size based on zoom
+        width={paletteSize.width * zoom}
+        height={paletteSize.height * zoom}
         style={{ border: '1px solid #ddd', position: 'absolute' }}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -165,14 +169,14 @@ const Palette: React.FC = () => {
               margin: '5px',
               cursor: 'move',
               position: 'absolute',
-              left: box.x * zoom,
-              top: box.y * zoom,
+              left: (box.x - boxSize.width / 2) * zoom,
+              top: (paletteSize.height - box.y - boxSize.height / 2) * zoom,
             }}
           >
             {`${box.x.toFixed(2)}, ${box.y.toFixed(2)}`}
             <button
               onClick={(event) => {
-                event.stopPropagation(); // Prevents the box from being selected when the button is clicked
+                event.stopPropagation();
                 handleRotationUpdate(box);
               }}
               style={{
