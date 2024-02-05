@@ -7,7 +7,6 @@ import { BoxState, editBox, removeBox } from "@/app/redux/boxSlice";
 const Palette: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
-  const [zoom, setZoom] = useState<number>(1);
   const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
 
   const paletteSize = useSelector(
@@ -45,51 +44,43 @@ const Palette: React.FC = () => {
       // Highlight overlapping boxes
       highlightOverlappingBoxes(context, boxes);
     }
-  }, [context, boxes, zoom, selectedBoxId]);
+  }, [context, boxes, selectedBoxId]);
 
   const drawBox = (ctx: CanvasRenderingContext2D, box: Box) => {
     ctx.save();
-  
+
     // Calculate adjusted position based on the center of the box
     const adjustedX = box.x - boxSize.width / 2;
     const adjustedY = box.y - boxSize.height / 2;
-  
+
     // Calculate the center of the rotated box
     const centerX = adjustedX + boxSize.width / 2;
     const centerY = adjustedY + boxSize.height / 2;
-  
-    ctx.translate(
-      centerX * zoom,
-      (paletteSize.height - centerY) * zoom
-    );
-  
-    // Apply rotation to both canvas and HTML box
+
+    ctx.translate(centerX, paletteSize.height - centerY);
     ctx.rotate((box.r * Math.PI) / 180);
-  
+
     // Draw box
     ctx.fillStyle = selectedBoxId === box.id ? "#ff0000" : "#3498db";
-    ctx.fillRect(-boxSize.width / 2 * zoom, -boxSize.height / 2 * zoom, boxSize.width * zoom, boxSize.height * zoom);
-  
+    ctx.fillRect(-boxSize.width / 2, -boxSize.height / 2, boxSize.width, boxSize.height);
+
     // Restore context
     ctx.restore();
   };
-  
-  
 
   const handleDragStart = (
     box: Box,
     event: React.DragEvent<HTMLDivElement>
   ) => {
-    // Store initial mouse position for better dragging experience
-    event.dataTransfer.setData("text/plain", ""); // Needed for dragging to work in some browsers
-    event.dataTransfer.setDragImage(new Image(), 0, 0); // Prevent default drag image
+    event.dataTransfer.setData("text/plain", "");
+    event.dataTransfer.setDragImage(new Image(), 0, 0);
     event.dataTransfer.dropEffect = "move";
 
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
 
     if (canvasBounds) {
-      const x = (event.clientX - canvasBounds.left) / zoom - box.x;
-      const y = (event.clientY - canvasBounds.top) / zoom - box.y;
+      const x = (event.clientX - canvasBounds.left) / 1 - box.x;
+      const y = (event.clientY - canvasBounds.top) / 1 - box.y;
       event.dataTransfer.setData(
         "application/json",
         JSON.stringify({ x, y, box })
@@ -111,31 +102,14 @@ const Palette: React.FC = () => {
         event.dataTransfer.getData("application/json")
       );
 
-      // Calculate the new position based on the center of the box
-      let newX =
-        (event.clientX - canvasBounds.left) / zoom + boxSize.width / (2 * zoom);
-      let newY =
-        paletteSize.height -
-        (event.clientY - canvasBounds.top) / zoom -
-        boxSize.height / (2 * zoom);
+      let newX = (event.clientX - canvasBounds.left) + boxSize.width / 2;
+      let newY = paletteSize.height - (event.clientY - canvasBounds.top) - boxSize.height / 2;
 
-      // Ensure the entire box stays within the canvas boundaries
-      newX = Math.max(
-        0,
-        Math.min(newX, paletteSize.width - boxSize.width / zoom)
-      );
-      newY = Math.max(
-        0,
-        Math.min(newY, paletteSize.height - boxSize.height / zoom)
-      );
+      newX = Math.max(0, Math.min(newX, paletteSize.width - boxSize.width));
+      newY = Math.max(0, Math.min(newY, paletteSize.height - boxSize.height));
 
-      // Dispatch action to update box position
       dispatch(editBox({ ...box, x: newX, y: newY }));
     }
-  };
-
-  const handleZoom = (factor: number) => {
-    setZoom((prevZoom) => Math.max(0.1, Math.min(2, prevZoom * factor))); // Adjust zoom limits as needed
   };
 
   const highlightOverlappingBoxes = (
@@ -145,19 +119,18 @@ const Palette: React.FC = () => {
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
         if (doBoxesOverlap(boxes[i], boxes[j])) {
-          // Highlight overlapping boxes with a red background
           ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
           ctx.fillRect(
-            boxes[i].x * zoom,
-            boxes[i].y * zoom,
-            boxSize.width * zoom,
-            boxSize.height * zoom
+            boxes[i].x,
+            boxes[i].y,
+            boxSize.width,
+            boxSize.height
           );
           ctx.fillRect(
-            boxes[j].x * zoom,
-            boxes[j].y * zoom,
-            boxSize.width * zoom,
-            boxSize.height * zoom
+            boxes[j].x,
+            boxes[j].y,
+            boxSize.width,
+            boxSize.height
           );
         }
       }
@@ -174,7 +147,6 @@ const Palette: React.FC = () => {
   };
 
   const handleRotationUpdate = (box: Box) => {
-    // Dispatch action to update box rotation (rotate by 90 degrees)
     dispatch(editBox({ ...box, r: (box.r + 90) % 360 }));
   };
 
@@ -183,20 +155,15 @@ const Palette: React.FC = () => {
     box: Box
   ) => {
     event.preventDefault();
-    // Dispatch action to remove the box
     dispatch(removeBox(box.id));
   };
 
   return (
     <div style={{ position: "relative" }}>
-      <div>
-        <button onClick={() => handleZoom(1.1)}>Zoom In</button>
-        <button onClick={() => handleZoom(0.9)}>Zoom Out</button>
-      </div>
       <canvas
         ref={canvasRef}
-        width={paletteSize.width * zoom}
-        height={paletteSize.height * zoom}
+        width={paletteSize.width}
+        height={paletteSize.height}
         style={{ border: "1px solid #ddd", position: "absolute" }}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -216,10 +183,10 @@ const Palette: React.FC = () => {
               margin: "5px",
               cursor: "move",
               position: "absolute",
-              left: ((box.x - boxSize.width / 2) * zoom),
-              top: ((paletteSize.height - box.y - boxSize.height / 2) * zoom),
-              transform: `rotate(${box.r}deg)`, // Add rotation to the style
-            }}            
+              left: box.x - boxSize.width / 2,
+              top: paletteSize.height - (box.y + boxSize.height / 2),
+              transform: `rotate(${box.r}deg)`,
+            }}
           >
             <div
               style={{
