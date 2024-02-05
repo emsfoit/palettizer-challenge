@@ -49,24 +49,32 @@ const Palette: React.FC = () => {
 
   const drawBox = (ctx: CanvasRenderingContext2D, box: Box) => {
     ctx.save();
-
+  
     // Calculate adjusted position based on the center of the box
     const adjustedX = box.x - boxSize.width / 2;
     const adjustedY = box.y - boxSize.height / 2;
-
+  
+    // Calculate the center of the rotated box
+    const centerX = adjustedX + boxSize.width / 2;
+    const centerY = adjustedY + boxSize.height / 2;
+  
     ctx.translate(
-      adjustedX * zoom,
-      (paletteSize.height - adjustedY - boxSize.height) * zoom
+      centerX * zoom,
+      (paletteSize.height - centerY) * zoom
     );
+  
+    // Apply rotation to both canvas and HTML box
     ctx.rotate((box.r * Math.PI) / 180);
-
+  
     // Draw box
     ctx.fillStyle = selectedBoxId === box.id ? "#ff0000" : "#3498db";
-    ctx.fillRect(0, 0, boxSize.width * zoom, boxSize.height * zoom);
-
+    ctx.fillRect(-boxSize.width / 2 * zoom, -boxSize.height / 2 * zoom, boxSize.width * zoom, boxSize.height * zoom);
+  
     // Restore context
     ctx.restore();
   };
+  
+  
 
   const handleDragStart = (
     box: Box,
@@ -208,9 +216,10 @@ const Palette: React.FC = () => {
               margin: "5px",
               cursor: "move",
               position: "absolute",
-              left: (box.x - boxSize.width / 2) * zoom,
-              top: (paletteSize.height - box.y - boxSize.height / 2) * zoom,
-            }}
+              left: ((box.x - boxSize.width / 2) * zoom),
+              top: ((paletteSize.height - box.y - boxSize.height / 2) * zoom),
+              transform: `rotate(${box.r}deg)`, // Add rotation to the style
+            }}            
           >
             <div
               style={{
