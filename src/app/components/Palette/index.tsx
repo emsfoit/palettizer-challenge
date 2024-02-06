@@ -7,6 +7,7 @@ import { BoxState, editBox, removeBox } from "@/app/redux/boxSlice";
 const Palette: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
+  const [draggedBoxData, setDraggedBoxData] = useState<{ x: number; y: number; box: Box } | null>(null);
 
   const paletteSize = useSelector(
     (state: { config: ConfigState }) => state.config.paletteSize
@@ -81,6 +82,10 @@ const Palette: React.FC = () => {
       // Calculate the offset from the center of the box
       const x = (event.clientX - canvasBounds.left) - box.x;
       const y = (event.clientY - canvasBounds.top) - (paletteSize.height - box.y);
+
+      // Set draggedBoxData for live preview during dragging
+      setDraggedBoxData({ x, y, box });
+
       event.dataTransfer.setData(
         "application/json",
         JSON.stringify({ x, y, box })
@@ -93,10 +98,8 @@ const Palette: React.FC = () => {
 
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
 
-    if (canvasBounds) {
-      const { x, y, box } = JSON.parse(
-        event.dataTransfer.getData("application/json")
-      );
+    if (canvasBounds && draggedBoxData) {
+      const { x, y, box } = draggedBoxData;
 
       // Calculate the new position based on the center of the box
       let newX = (event.clientX - canvasBounds.left) - x;
@@ -109,12 +112,25 @@ const Palette: React.FC = () => {
       // Dispatch action to update box position
       dispatch(editBox({ ...box, x: newX + boxSize.width / 2, y: paletteSize.height - (newY + boxSize.height / 2) }));
     }
+
+    // Reset draggedBoxData after drop
+    setDraggedBoxData(null);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-  };
 
+    const canvasBounds = canvasRef.current?.getBoundingClientRect();
+
+    if (canvasBounds && draggedBoxData) {
+      const { x, y, box } = draggedBoxData;
+
+      let newX = (event.clientX - canvasBounds.left) - x;
+      let newY = (event.clientY - canvasBounds.top) - y;
+
+      dispatch(editBox({ ...box, x: newX + boxSize.width / 2, y: paletteSize.height - (newY + boxSize.height / 2) }));
+    }
+  };
 
   const handleRotationUpdate = (box: Box) => {
     dispatch(editBox({ ...box, r: (box.r + 90) % 360 }));
