@@ -3,4 +3,5 @@ export type Box = {
     x: number;
     y: number;
     r: number;
+    collided?: boolean;
 }

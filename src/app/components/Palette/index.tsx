@@ -85,19 +85,26 @@ const Palette: React.FC = () => {
 
       // Set draggedBoxData for live preview during dragging
       setDraggedBoxData({ x, y, box });
-
-      event.dataTransfer.setData(
-        "application/json",
-        JSON.stringify({ x, y, box })
-      );
     }
   };
-
+  const checkCollision = (box: Box, newX: number, newY: number) => {
+    let coilided = []
+    for(let i = 0; i < boxes.length; i++){
+      if(boxes[i].id !== box.id){
+        if( newX - boxSize.width / 2 < boxes[i].x + boxSize.width / 2 &&
+          newX + boxSize.width / 2 > boxes[i].x - boxSize.width / 2 &&
+          newY - boxSize.height / 2 < boxes[i].y + boxSize.height / 2 &&
+          newY + boxSize.height / 2 > boxes[i].y - boxSize.height / 2)  {
+          coilided.push(boxes[i])
+        }
+      }
+    }
+    return coilided;
+  }
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
 
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
-
     if (canvasBounds && draggedBoxData) {
       const { x, y, box } = draggedBoxData;
 
@@ -105,31 +112,74 @@ const Palette: React.FC = () => {
       let newX = (event.clientX - canvasBounds.left) - x;
       let newY = (event.clientY - canvasBounds.top) - y;
 
-      // Ensure the entire box stays within the canvas boundaries
-      newX = Math.max(0, Math.min(newX, paletteSize.width - boxSize.width));
-      newY = Math.max(0, Math.min(newY, paletteSize.height - boxSize.height));
+      // check for right boundary
+      if(newX < boxSize.width / 2){
+        newX = boxSize.width / 2
+      }
+      // check for left boundary
+      if(newX > paletteSize.width - boxSize.width / 2){
+        newX = paletteSize.width - boxSize.width / 2
+      }
+      // check for top boundary
+      if(newY < boxSize.height / 2){
+        newY = boxSize.height / 2
+      }
+      // check for bottom boundary
+      if(newY > paletteSize.height - boxSize.height / 2){
+        newY = paletteSize.height - boxSize.height / 2
+      }
 
-      // Dispatch action to update box position
-      dispatch(editBox({ ...box, x: newX + boxSize.width / 2, y: paletteSize.height - (newY + boxSize.height / 2) }));
+      let adjustedY = paletteSize.height - newY;
+      // implement snap to grid logic
+      // if this box is colliding with any other box, then snap to the grid try right, left, top, bottom if not then place it at the current position
+      // if it is not colliding with any other box, then place it at the current position
+
+      // check for collision
+      let collidedBoxes = checkCollision(box, newX, adjustedY);
+      let collided=false
+      if(collidedBoxes.length){
+        debugger
+        // sort the collidedBoxes array based on the distance from the current box
+        collidedBoxes.sort((a, b) => {
+          return Math.sqrt(Math.pow(a.x - newX, 2) + Math.pow(a.y - adjustedY, 2)) - Math.sqrt(Math.pow(b.x - newX, 2) + Math.pow(b.y - adjustedY, 2))
+        });
+        
+        // check the bottom, right, top, left
+        for(let i = 0; i < collidedBoxes.length; i++){
+          // check for bottom
+          if(adjustedY < collidedBoxes[i].y){
+            adjustedY = collidedBoxes[i].y - boxSize.height - 5;
+            collided = checkCollision(box, newX, adjustedY).length > 0;
+            if(!collided) break;
+          }
+          // check for right
+          if(newX < collidedBoxes[i].x){
+            newX = collidedBoxes[i].x - boxSize.width - 5;
+            collided = checkCollision(box, newX, adjustedY).length > 0;
+            if(!collided) break;
+          }
+          // check for top
+          if(adjustedY > collidedBoxes[i].y){
+            adjustedY = collidedBoxes[i].y + boxSize.height + 5;
+            collided = checkCollision(box, newX, adjustedY).length > 0;
+            if(!collided) break;
+          }
+          // check for left
+          if(newX > collidedBoxes[i].x){
+            newX = collidedBoxes[i].x + boxSize.width + 5;
+            collided = checkCollision(box, newX, adjustedY).length > 0;
+            if(!collided) break;
+          }
+        }
+      }
+      dispatch(editBox({ ...box, x: newX, y: adjustedY, collided: collided }));
     }
-
     // Reset draggedBoxData after drop
     setDraggedBoxData(null);
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-
-    const canvasBounds = canvasRef.current?.getBoundingClientRect();
-
-    if (canvasBounds && draggedBoxData) {
-      const { x, y, box } = draggedBoxData;
-
-      let newX = (event.clientX - canvasBounds.left) - x;
-      let newY = (event.clientY - canvasBounds.top) - y;
-
-      dispatch(editBox({ ...box, x: newX + boxSize.width / 2, y: paletteSize.height - (newY + boxSize.height / 2) }));
-    }
   };
 
   const handleRotationUpdate = (box: Box) => {
