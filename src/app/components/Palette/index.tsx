@@ -7,7 +7,6 @@ import { BoxState, editBox, removeBox } from "@/app/redux/boxSlice";
 const Palette: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
-  const [selectedBoxId, setSelectedBoxId] = useState<string | null>(null);
 
   const paletteSize = useSelector(
     (state: { config: ConfigState }) => state.config.paletteSize
@@ -32,6 +31,9 @@ const Palette: React.FC = () => {
       // Clear the canvas
       context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
+      // begin drawing
+      context.beginPath();
+
       // Draw the palette background
       context.fillStyle = "#eee";
       context.fillRect(0, 0, context.canvas.width, context.canvas.height);
@@ -41,10 +43,8 @@ const Palette: React.FC = () => {
         drawBox(context, box);
       });
 
-      // Highlight overlapping boxes
-      highlightOverlappingBoxes(context, boxes);
     }
-  }, [context, boxes, selectedBoxId]);
+  }, [context, boxes]);
 
   const drawBox = (ctx: CanvasRenderingContext2D, box: Box) => {
     ctx.save();
@@ -60,8 +60,7 @@ const Palette: React.FC = () => {
     ctx.translate(centerX, paletteSize.height - centerY);
     ctx.rotate((box.r * Math.PI) / 180);
 
-    // Draw box
-    ctx.fillStyle = selectedBoxId === box.id ? "#ff0000" : "#3498db";
+    ctx.fillStyle = "#3498db";
     ctx.fillRect(-boxSize.width / 2, -boxSize.height / 2, boxSize.width, boxSize.height);
 
     // Restore context
@@ -79,17 +78,14 @@ const Palette: React.FC = () => {
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
 
     if (canvasBounds) {
-      const x = (event.clientX - canvasBounds.left) / 1 - box.x;
-      const y = (event.clientY - canvasBounds.top) / 1 - box.y;
+      // Calculate the offset from the center of the box
+      const x = (event.clientX - canvasBounds.left) - box.x;
+      const y = (event.clientY - canvasBounds.top) - (paletteSize.height - box.y);
       event.dataTransfer.setData(
         "application/json",
         JSON.stringify({ x, y, box })
       );
     }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -102,49 +98,23 @@ const Palette: React.FC = () => {
         event.dataTransfer.getData("application/json")
       );
 
-      let newX = (event.clientX - canvasBounds.left) + boxSize.width / 2;
-      let newY = paletteSize.height - (event.clientY - canvasBounds.top) - boxSize.height / 2;
+      // Calculate the new position based on the center of the box
+      let newX = (event.clientX - canvasBounds.left) - x;
+      let newY = (event.clientY - canvasBounds.top) - y;
 
+      // Ensure the entire box stays within the canvas boundaries
       newX = Math.max(0, Math.min(newX, paletteSize.width - boxSize.width));
       newY = Math.max(0, Math.min(newY, paletteSize.height - boxSize.height));
 
-      dispatch(editBox({ ...box, x: newX, y: newY }));
+      // Dispatch action to update box position
+      dispatch(editBox({ ...box, x: newX + boxSize.width / 2, y: paletteSize.height - (newY + boxSize.height / 2) }));
     }
   };
 
-  const highlightOverlappingBoxes = (
-    ctx: CanvasRenderingContext2D,
-    boxes: Box[]
-  ) => {
-    for (let i = 0; i < boxes.length; i++) {
-      for (let j = i + 1; j < boxes.length; j++) {
-        if (doBoxesOverlap(boxes[i], boxes[j])) {
-          ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-          ctx.fillRect(
-            boxes[i].x,
-            boxes[i].y,
-            boxSize.width,
-            boxSize.height
-          );
-          ctx.fillRect(
-            boxes[j].x,
-            boxes[j].y,
-            boxSize.width,
-            boxSize.height
-          );
-        }
-      }
-    }
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
   };
 
-  const doBoxesOverlap = (box1: Box, box2: Box) => {
-    return (
-      box1.x < box2.x + boxSize.width &&
-      box1.x + boxSize.width > box2.x &&
-      box1.y < box2.y + boxSize.height &&
-      box1.y + boxSize.height > box2.y
-    );
-  };
 
   const handleRotationUpdate = (box: Box) => {
     dispatch(editBox({ ...box, r: (box.r + 90) % 360 }));
@@ -174,12 +144,11 @@ const Palette: React.FC = () => {
             key={box.id}
             draggable
             onDragStart={(event) => handleDragStart(box, event)}
-            onClick={() => setSelectedBoxId(box.id)}
             onContextMenu={(event) => handleBoxRightClick(event, box)}
             style={{
               width: `${boxSize.width}px`,
               height: `${boxSize.height}px`,
-              backgroundColor: selectedBoxId === box.id ? "#ff0000" : "green",
+              backgroundColor: "green",
               margin: "5px",
               cursor: "move",
               position: "absolute",
