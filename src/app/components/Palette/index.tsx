@@ -94,43 +94,17 @@ const Palette: React.FC = () => {
       // Calculate the new position based on the center of the box
       let newX = (event.clientX - canvasBounds.left) - x;
       let newY = (event.clientY - canvasBounds.top) - y;
-      // IF THE BOX HAS 0 OR 180 DEGREE ROTATION
-      if(box.r == 0 || box.r == 180){
-        if(newX < boxSize.width / 2){
-          newX = boxSize.width / 2
-        }
-        // check for left boundary
-        if(newX > paletteSize.width - boxSize.width / 2){
-          newX = paletteSize.width - boxSize.width / 2
-        }
-        // check for top boundary
-        if(newY < boxSize.height / 2){
-          newY = boxSize.height / 2
-        }
-        // check for bottom boundary
-        if(newY > paletteSize.height - boxSize.height / 2){
-          newY = paletteSize.height - boxSize.height / 2
-        }
-      } 
-      // IF THE BOX HAS 90 OR 270 DEGREE ROTATION
-      else if(box.r == 90 || box.r == 270){
-        if(newX < boxSize.height / 2){
-          newX = boxSize.height / 2
-        }
-        // check for left boundary
-        if(newX > paletteSize.width - boxSize.height / 2){
-          newX = paletteSize.width - boxSize.height / 2
-        }
-        // check for top boundary
-        if(newY < boxSize.width / 2){
-          newY = boxSize.width / 2
-        }
-        // check for bottom boundary
-        if(newY > paletteSize.height - boxSize.width / 2){
-          newY = paletteSize.height - boxSize.width / 2
-        }
-      } 
-      // check for right boundary
+
+      // If the box has 0 or 180-degree rotation
+      if (box.r === 0 || box.r === 180) {
+        newX = Math.max(boxSize.width / 2, Math.min(newX, paletteSize.width - boxSize.width / 2));
+        newY = Math.max(boxSize.height / 2, Math.min(newY, paletteSize.height - boxSize.height / 2));
+      }
+      // If the box has 90 or 270-degree rotation
+      else if (box.r === 90 || box.r === 270) {
+        newX = Math.max(boxSize.height / 2, Math.min(newX, paletteSize.width - boxSize.height / 2));
+        newY = Math.max(boxSize.width / 2, Math.min(newY, paletteSize.height - boxSize.width / 2));
+      }
 
       let adjustedY = paletteSize.height - newY;
       // implement snap to grid logic
@@ -198,6 +172,7 @@ const Palette: React.FC = () => {
     }
 
     dispatch(editBox(payload));
+    // TODO: Check if the box is colliding with any other box after rotation and adjust the position
   };
 
   const handleBoxRightClick = (event: React.MouseEvent<HTMLDivElement>, box: Box) => {
