@@ -9,14 +9,8 @@ const Palette: React.FC = () => {
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
   const [draggedBoxData, setDraggedBoxData] = useState<{ x: number; y: number; box: Box } | null>(null);
 
-  const paletteSize = useSelector(
-    (state: { config: ConfigState }) => state.config.paletteSize
-  );
+  const { paletteSize, boxSize } = useSelector((state: { config: ConfigState }) => state.config);
   const boxes = useSelector((state: { box: BoxState }) => state.box.boxes);
-  const boxSize = useSelector(
-    (state: { config: ConfigState }) => state.config.boxSize
-  );
-
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -68,10 +62,7 @@ const Palette: React.FC = () => {
     ctx.restore();
   };
 
-  const handleDragStart = (
-    box: Box,
-    event: React.DragEvent<HTMLDivElement>
-  ) => {
+  const handleDragStart = (box: Box, event: React.DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData("text/plain", "");
     event.dataTransfer.setDragImage(new Image(), 0, 0);
     event.dataTransfer.dropEffect = "move";
@@ -79,28 +70,20 @@ const Palette: React.FC = () => {
     const canvasBounds = canvasRef.current?.getBoundingClientRect();
 
     if (canvasBounds) {
-      // Calculate the offset from the center of the box
       const x = (event.clientX - canvasBounds.left) - box.x;
       const y = (event.clientY - canvasBounds.top) - (paletteSize.height - box.y);
-
-      // Set draggedBoxData
       setDraggedBoxData({ x, y, box });
     }
   };
   const checkCollision = (box: Box, newX: number, newY: number) => {
-    let coilided = []
-    for(let i = 0; i < boxes.length; i++){
-      if(boxes[i].id !== box.id){
-        if( newX - boxSize.width / 2 < boxes[i].x + boxSize.width / 2 &&
-          newX + boxSize.width / 2 > boxes[i].x - boxSize.width / 2 &&
-          newY - boxSize.height / 2 < boxes[i].y + boxSize.height / 2 &&
-          newY + boxSize.height / 2 > boxes[i].y - boxSize.height / 2)  {
-          coilided.push(boxes[i])
-        }
-      }
-    }
-    return coilided;
-  }
+    return boxes.filter(b => b.id !== box.id && (
+      newX - boxSize.width / 2 < b.x + boxSize.width / 2 &&
+      newX + boxSize.width / 2 > b.x - boxSize.width / 2 &&
+      newY - boxSize.height / 2 < b.y + boxSize.height / 2 &&
+      newY + boxSize.height / 2 > b.y - boxSize.height / 2
+    ));
+  };
+
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
 
@@ -203,52 +186,21 @@ const Palette: React.FC = () => {
   };
 
   const handleRotationUpdate = (box: Box) => {
-
     let payload = { ...box, r: (box.r + 90) % 360 };
-    // Check if the payload get out of the canvas after rotation and adjust the position
-
-    if(payload.r == 0 || payload.r == 180){
-      if(payload.x < boxSize.width / 2){
-        payload.x = boxSize.width / 2
-      }
-      // check for left boundary
-      if(payload.x > paletteSize.width - boxSize.width / 2){
-        payload.x = paletteSize.width - boxSize.width / 2
-      }
-      // check for top boundary
-      if(payload.y < boxSize.height / 2){
-        payload.y = boxSize.height / 2
-      }
-      // check for bottom boundary
-      if(payload.y > paletteSize.height - boxSize.height / 2){
-        payload.y = paletteSize.height - boxSize.height / 2
-      }
-    }
-    else if(payload.r == 90 || payload.r == 270){
-      if(payload.x < boxSize.height / 2){
-        payload.x = boxSize.height / 2
-      }
-      // check for left boundary
-      if(payload.x > paletteSize.width - boxSize.height / 2){
-        payload.x = paletteSize.width - boxSize.height / 2
-      }
-      // check for top boundary
-      if(payload.y < boxSize.width / 2){
-        payload.y = boxSize.width / 2
-      }
-      // check for bottom boundary
-      if(payload.y > paletteSize.height - boxSize.width / 2){
-        payload.y = paletteSize.height - boxSize.width / 2
-      }
-    }
-    dispatch(editBox(payload));
     
+    // Check if the payload gets out of the canvas after rotation and adjust the position
+    if (payload.r === 0 || payload.r === 180) {
+      payload.x = Math.max(boxSize.width / 2, Math.min(payload.x, paletteSize.width - boxSize.width / 2));
+      payload.y = Math.max(boxSize.height / 2, Math.min(payload.y, paletteSize.height - boxSize.height / 2));
+    } else if (payload.r === 90 || payload.r === 270) {
+      payload.x = Math.max(boxSize.height / 2, Math.min(payload.x, paletteSize.width - boxSize.height / 2));
+      payload.y = Math.max(boxSize.width / 2, Math.min(payload.y, paletteSize.height - boxSize.width / 2));
+    }
+
+    dispatch(editBox(payload));
   };
 
-  const handleBoxRightClick = (
-    event: React.MouseEvent<HTMLDivElement>,
-    box: Box
-  ) => {
+  const handleBoxRightClick = (event: React.MouseEvent<HTMLDivElement>, box: Box) => {
     event.preventDefault();
     dispatch(removeBox(box.id));
   };
@@ -273,7 +225,7 @@ const Palette: React.FC = () => {
             style={{
               width: `${boxSize.width}px`,
               height: `${boxSize.height}px`,
-              backgroundColor: "green",
+              backgroundColor: box.collided ? "red" : "green",
               margin: "5px",
               cursor: "move",
               position: "absolute",
