@@ -87,8 +87,12 @@ const boxes = [
 ]
 export interface BoxState {
     boxes: Box[];
-  }
-  
+}
+
+export interface BooxPosition {
+    x: number;
+    y: number;
+}
 
 const initialState = {
     boxes: boxes
@@ -98,13 +102,12 @@ export const boxSlice = createSlice({
     name: "box",
     initialState,
     reducers: {
-        addBox: (state: BoxState) => {
+        addBox: (state: BoxState, action: PayloadAction<BooxPosition>) => {
             const id = uuidv4();
-            // TODO: calc x and y
             state.boxes.push({
                 id,
-                x: 0,
-                y: 0,
+                x: action.payload.x,
+                y: action.payload.y,
                 r: 0
             });
         },

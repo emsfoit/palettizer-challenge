@@ -115,7 +115,6 @@ const Palette: React.FC = () => {
       let collidedBoxes = checkCollision(box, newX, adjustedY);
       let collided=false
       if(collidedBoxes.length){
-        debugger
         // sort the collidedBoxes array based on the distance from the current box
         collidedBoxes.sort((a, b) => {
           return Math.sqrt(Math.pow(a.x - newX, 2) + Math.pow(a.y - adjustedY, 2)) - Math.sqrt(Math.pow(b.x - newX, 2) + Math.pow(b.y - adjustedY, 2))
